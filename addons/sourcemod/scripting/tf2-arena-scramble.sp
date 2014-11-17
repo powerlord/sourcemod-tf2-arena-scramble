@@ -171,6 +171,11 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	if (!g_bActive)
+	{
+		return Plugin_Continue;
+	}
+	
 	new redScore = GetEventInt(event, "red_score");
 	new bluScore = GetEventInt(event, "blue_score");
 	new winner = GetEventInt(event, "winning_team");
@@ -185,6 +190,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 			return Plugin_Continue;
 		}
 		
+		// Reset the score to imitate how non-queue arena works
 		if (bluScore > 0)
 		{
 			SetVariantInt(0 - bluScore);
@@ -201,6 +207,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 			return Plugin_Continue;
 		}
 
+		// Reset the score to imitate how non-queue arena works
 		if (redScore > 0)
 		{
 			SetVariantInt(0 - redScore);
