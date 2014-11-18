@@ -1,8 +1,8 @@
 /**
  * vim: set ts=4 :
  * =============================================================================
- * Name
- * Description
+ * [TF2] Arena Scramble
+ * Make tf_arena_use_queue scramble and score like normal arena
  *
  * Name (C)2014 Powerlord (Ross Bemrose).  All rights reserved.
  * =============================================================================
@@ -64,7 +64,7 @@ new TF2GameType:g_MapType = TF2GameType_Generic;
 public Plugin:myinfo = {
 	name			= "[TF2] Arena Scramble",
 	author			= "Powerlord",
-	description		= "",
+	description		= "Make tf_arena_use_queue scramble and score like normal arena",
 	version			= VERSION,
 	url				= ""
 };
