@@ -35,6 +35,9 @@
 #include <sdktools>
 #pragma semicolon 1
 
+// Enable this to turn on debugging code.
+// #define DEBUG
+
 #define VERSION "1.0.0"
 
 //swiped from tf2_morestocks.inc in my sourcemod-snippets repo
@@ -55,7 +58,7 @@ new Handle:g_Cvar_Queue;
 new Handle:g_Cvar_Arena_Streak;
 
 new bool:g_bActive = true;
-new bool:g_bMapActive = false;
+//new bool:g_bMapActive = false;
 
 new Handle:g_Call_SetScramble;
 
@@ -123,6 +126,10 @@ public OnPluginStart()
 //void CTeamplayRules::SetScrambleTeams( bool bScramble )
 SetScrambleTeams(bool:bScramble, redScore, bluScore)
 {
+#if defined DEBUG
+    LogMessage("Scramble was activated. Resetting team scores.");
+#endif
+	
 	SetVariantInt(0 - redScore);
 	AcceptEntityInput(g_GameRulesProxy, "AddRedTeamScore");
 
@@ -135,11 +142,18 @@ SetScrambleTeams(bool:bScramble, redScore, bluScore)
 public OnConfigsExecuted()
 {
 	g_GameRulesProxy = EntIndexToEntRef(FindEntityByClassname(-1, "tf_gamerules"));
-
-	g_bMapActive = true;
+#if defined DEBUG
+    LogMessage("g_GameRulesProxy is entity %d", g_GameRulesProxy);
+#endif
+	
+//	g_bMapActive = true;
 	g_bActive = false;
 	
 	g_MapType = TF2_GetGameType();
+
+#if defined DEBUG
+    LogMessage("gametype is: %d", g_MapType);
+#endif
 	
 	// If queue is false, we need to be active
 	if (g_MapType == TF2GameType_Arena && !GetConVarBool(g_Cvar_Queue))
@@ -150,7 +164,7 @@ public OnConfigsExecuted()
 
 public OnMapEnd()
 {
-	g_bMapActive = false;
+//	g_bMapActive = false;
 	g_GameRulesProxy = INVALID_ENT_REFERENCE;
 	
 	g_MapType = TF2GameType_Generic;
@@ -186,6 +200,9 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 	{
 		if (redScore >= streak)
 		{
+#if defined DEBUG
+			LogMessage("Red score (%d) exceeds win streak (%d)", redScore, streak);
+#endif
 			SetScrambleTeams(true, redScore, bluScore);
 			return Plugin_Continue;
 		}
@@ -193,6 +210,10 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 		// Reset the score to imitate how non-queue arena works
 		if (bluScore > 0)
 		{
+#if defined DEBUG
+			LogMessage("Resetting Blue score by adding %d", 0 - bluScore);
+#endif
+			
 			SetVariantInt(0 - bluScore);
 			AcceptEntityInput(g_GameRulesProxy, "AddBlueTeamScore");
 			SetEventInt(event, "blue_score", 0);
@@ -203,6 +224,9 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 	{
 		if (bluScore >= streak)
 		{
+#if defined DEBUG
+			LogMessage("Blue score (%d) exceeds win streak (%d)", bluScore, streak);
+#endif
 			SetScrambleTeams(true, redScore, bluScore);
 			return Plugin_Continue;
 		}
@@ -210,6 +234,9 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 		// Reset the score to imitate how non-queue arena works
 		if (redScore > 0)
 		{
+#if defined DEBUG
+			LogMessage("Resetting Red score by adding %d", 0 - redScore);
+#endif
 			SetVariantInt(0 - redScore);
 			AcceptEntityInput(g_GameRulesProxy, "AddRedTeamScore");
 			SetEventInt(event, "red_score", 0);
@@ -226,6 +253,9 @@ public Cvar_QueueState(Handle:convar, const String:oldValue[], const String:newV
 	{
 		return;
 	}
+#if defined DEBUG
+	LogMessage("Arena queue setting changed to %s", newValue);
+#endif
 	
 	g_bActive = GetConVarBool(convar);
 }
