@@ -36,7 +36,7 @@
 #pragma semicolon 1
 
 // Enable this to turn on debugging code.
-// #define DEBUG
+//#define DEBUG
 
 #define VERSION "1.0.0"
 
@@ -63,6 +63,16 @@ new bool:g_bActive = true;
 new Handle:g_Call_SetScramble;
 
 new TF2GameType:g_MapType = TF2GameType_Generic;
+
+new bool:g_bScrambledThisRound = false;
+new winningTeam = 0;
+
+new bool:g_bIgnoreCvarChange = false;
+// Stolen from another one of my plugins' valve.inc
+#define HUD_PRINTNOTIFY	1
+#define HUD_PRINTCONSOLE	2
+#define HUD_PRINTTALK		3
+#define HUD_PRINTCENTER	4
 
 public Plugin:myinfo = {
 	name			= "[TF2] Arena Scramble",
@@ -103,9 +113,10 @@ public OnPluginStart()
 	
 	HookConVarChange(g_Cvar_Queue, Cvar_QueueState);
 	
-	//HookEvent("teamplay_round_start", Event_RoundStart);
+	HookEvent("teamplay_round_start", Event_RoundStart);
 	//HookEvent("teamplay_round_win", Event_RoundEnd);
 	HookEvent("arena_win_panel", Event_WinPanel, EventHookMode_Pre);
+	HookEvent("arena_win_panel", Event_WinPanelPost, EventHookMode_PostNoCopy);
 	
 	new Handle:gamedata = LoadGameConfigFile("tf2scramble");
 	
@@ -137,13 +148,16 @@ SetScrambleTeams(bool:bScramble, redScore, bluScore)
 	AcceptEntityInput(g_GameRulesProxy, "AddBlueTeamScore");
 	
 	SDKCall(g_Call_SetScramble, bScramble);
+	g_bScrambledThisRound = true;
 }
 
 public OnConfigsExecuted()
 {
+	PrecacheScriptSound("Announcer.AM_TeamScrambleRandom");
+	
 	g_GameRulesProxy = EntIndexToEntRef(FindEntityByClassname(-1, "tf_gamerules"));
 #if defined DEBUG
-    LogMessage("g_GameRulesProxy is entity %d", g_GameRulesProxy);
+    LogMessage("g_GameRulesProxy is entref %d", g_GameRulesProxy);
 #endif
 	
 //	g_bMapActive = true;
@@ -170,51 +184,83 @@ public OnMapEnd()
 	g_MapType = TF2GameType_Generic;
 }
 
-/*
+
 public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	// Game should have switched the scores around on its own.
-	if (GameRules_GetProp("m_bSwitchedTeamsThisRound"))
+	if (g_bScrambledThisRound)
 	{
-		new temp = g_Scores[REDScore];
-		g_Scores[REDScore] = g_Scores[BLUScore];
-		g_Scores[BLUScore] = temp;
+		g_bScrambledThisRound = false;
+		EmitGameSoundToAll("Announcer.AM_TeamScrambleRandom");
+		new String:streakString[4];
+		GetConVarString(g_Cvar_Arena_Streak, streakString, sizeof(streakString));
+		
+		new String:teamName[4];
+		if (winningTeam == _:TFTeam_Red)
+		{
+			teamName = "RED";
+		}
+		else if (winningTeam == _:TFTeam_Blue)
+		{
+			teamName = "BLU";
+		}
+		
+		PrintValveTranslationToAll(HUD_PRINTTALK, "TF_Arena_MaxStreak", teamName, streakString);
 	}
 }
-*/
+
 
 public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadcast)
 {
+#if defined DEBUG
+	new panelStyle = GetEventInt(event, "panel_style");
+	LogMessage("Panel style: %d", panelStyle);
+#endif
+
 	if (!g_bActive)
 	{
 		return Plugin_Continue;
 	}
+
+	g_bIgnoreCvarChange = true;
+	// Remove the notify flag and set the queue cvar to true
+	new flags = GetConVarFlags(g_Cvar_Queue);
+	flags &= ~FCVAR_NOTIFY;
+	SetConVarFlags(g_Cvar_Queue, flags);
+	SetConVarBool(g_Cvar_Queue, true);
 	
-	new redScore = GetEventInt(event, "red_score");
-	new bluScore = GetEventInt(event, "blue_score");
+	new score;
+	new opponentScore;
 	new winner = GetEventInt(event, "winning_team");
-	
+
 	new streak = GetConVarInt(g_Cvar_Arena_Streak);
 	
 	if (winner == _:TFTeam_Red)
 	{
-		if (redScore >= streak)
+		score = GetEventInt(event, "red_score");
+		opponentScore = GetEventInt(event, "blue_score_prev");
+
+#if defined DEBUG
+		LogMessage("Winner: RED, RED score: %d, BLU score: %d", score, opponentScore);
+#endif
+		
+		if (score >= streak)
 		{
 #if defined DEBUG
-			LogMessage("Red score (%d) exceeds win streak (%d)", redScore, streak);
+			LogMessage("Red score (%d) exceeds win streak (%d)", score, streak);
 #endif
-			SetScrambleTeams(true, redScore, bluScore);
+			winningTeam = winner;
+			SetScrambleTeams(true, score, opponentScore);
 			return Plugin_Continue;
 		}
 		
 		// Reset the score to imitate how non-queue arena works
-		if (bluScore > 0)
+		if (opponentScore > 0)
 		{
 #if defined DEBUG
-			LogMessage("Resetting Blue score by adding %d", 0 - bluScore);
+			LogMessage("Resetting Blue score by adding %d", 0 - opponentScore);
 #endif
 			
-			SetVariantInt(0 - bluScore);
+			SetVariantInt(0 - opponentScore);
 			AcceptEntityInput(g_GameRulesProxy, "AddBlueTeamScore");
 			SetEventInt(event, "blue_score", 0);
 		}
@@ -222,24 +268,32 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 	}
 	else if (winner == _:TFTeam_Blue)
 	{
-		if (bluScore >= streak)
+		score = GetEventInt(event, "blue_score");
+		opponentScore = GetEventInt(event, "red_score_prev");
+
+#if defined DEBUG
+		LogMessage("Winner: BLU, BLU score: %d, RED score: %d", score, opponentScore);
+#endif
+		
+		
+		if (score >= streak)
 		{
 #if defined DEBUG
-			LogMessage("Blue score (%d) exceeds win streak (%d)", bluScore, streak);
+			LogMessage("Blue score (%d) exceeds win streak (%d)", score, streak);
 #endif
-			SetScrambleTeams(true, redScore, bluScore);
+			winningTeam = winner;
+			SetScrambleTeams(true, opponentScore, score);
 			return Plugin_Continue;
 		}
 
 		// Reset the score to imitate how non-queue arena works
-		if (redScore > 0)
+		if (opponentScore > 0)
 		{
 #if defined DEBUG
-			LogMessage("Resetting Red score by adding %d", 0 - redScore);
+			LogMessage("Resetting Red score by adding %d", 0 - opponentScore);
 #endif
-			SetVariantInt(0 - redScore);
+			SetVariantInt(0 - opponentScore);
 			AcceptEntityInput(g_GameRulesProxy, "AddRedTeamScore");
-			SetEventInt(event, "red_score", 0);
 		}
 
 	}
@@ -247,9 +301,24 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 	return Plugin_Continue;
 }
 
+public Event_WinPanelPost(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!g_bActive)
+	{
+		return;
+	}
+	
+	// Set the queue cvar back to false and reset the notify flag
+	SetConVarBool(g_Cvar_Queue, false);
+	new flags = GetConVarFlags(g_Cvar_Queue);
+	flags |= FCVAR_NOTIFY;
+	SetConVarFlags(g_Cvar_Queue, flags);
+	g_bIgnoreCvarChange = false;
+}
+
 public Cvar_QueueState(Handle:convar, const String:oldValue[], const String:newValue[])
 {
-	if (g_MapType != TF2GameType_Arena)
+	if (g_bIgnoreCvarChange || g_MapType != TF2GameType_Arena)
 	{
 		return;
 	}
@@ -257,5 +326,63 @@ public Cvar_QueueState(Handle:convar, const String:oldValue[], const String:newV
 	LogMessage("Arena queue setting changed to %s", newValue);
 #endif
 	
-	g_bActive = GetConVarBool(convar);
+	g_bActive = !GetConVarBool(convar);
+}
+
+// Stolen from another one of my plugins' valve.inc
+
+// Print a Valve translation phrase to a group of players
+// Adapted from util.h's UTIL_PrintToClientFilter
+stock PrintValveTranslation(clients[],
+						    numClients,
+						    msg_dest,
+						    const String:msg_name[],
+						    const String:param1[]="",
+						    const String:param2[]="",
+						    const String:param3[]="",
+						    const String:param4[]="")
+{
+	new Handle:bf = StartMessage("TextMsg", clients, numClients, USERMSG_RELIABLE);
+	
+	if (GetUserMessageType() == UM_Protobuf)
+	{
+		PbSetInt(bf, "msg_dest", msg_dest);
+		PbAddString(bf, "params", msg_name);
+		
+		PbAddString(bf, "params", param1);
+		PbAddString(bf, "params", param2);
+		PbAddString(bf, "params", param3);
+		PbAddString(bf, "params", param4);
+	}
+	else
+	{
+		BfWriteByte(bf, msg_dest);
+		BfWriteString(bf, msg_name);
+		
+		BfWriteString(bf, param1);
+		BfWriteString(bf, param2);
+		BfWriteString(bf, param3);
+		BfWriteString(bf, param4);
+	}
+	
+	EndMessage();
+}
+
+stock PrintValveTranslationToAll(msg_dest,
+								const String:msg_name[],
+								const String:param1[]="",
+								const String:param2[]="",
+								const String:param3[]="",
+								const String:param4[]="")
+{
+	new total = 0;
+	new clients[MaxClients];
+	for (new i=1; i<=MaxClients; i++)
+	{
+		if (IsClientConnected(i))
+		{
+			clients[total++] = i;
+		}
+	}
+	PrintValveTranslation(clients, total, msg_dest, msg_name, param1, param2, param3, param4);
 }
