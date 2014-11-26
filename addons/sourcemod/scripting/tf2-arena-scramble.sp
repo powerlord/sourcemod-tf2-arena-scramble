@@ -197,11 +197,11 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 		new String:teamName[4];
 		if (winningTeam == _:TFTeam_Red)
 		{
-			teamName = "RED";
+			teamName = "#TF_RedTeam_Name";
 		}
 		else if (winningTeam == _:TFTeam_Blue)
 		{
-			teamName = "BLU";
+			teamName = "#TF_BlueTeam_Name";
 		}
 		
 		PrintValveTranslationToAll(HUD_PRINTTALK, "TF_Arena_MaxStreak", teamName, streakString);
