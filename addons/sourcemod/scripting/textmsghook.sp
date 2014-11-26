@@ -39,7 +39,7 @@
 #define VERSION "1.0.0"
 
 public Plugin:myinfo = {
-	name			= "[TF2] Read TextMsg values",
+	name			= "Read TextMsg values",
 	author			= "Powerlord",
 	description		= "Read this to check what the TextMsg usermessage is sending back.",
 	version			= VERSION,
