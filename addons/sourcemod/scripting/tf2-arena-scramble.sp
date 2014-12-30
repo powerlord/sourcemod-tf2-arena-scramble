@@ -38,7 +38,7 @@
 // Enable this to turn on debugging code.
 //#define DEBUG
 
-#define VERSION "1.0.0"
+#define VERSION "1.1.0"
 
 //swiped from tf2_morestocks.inc in my sourcemod-snippets repo
 enum TF2GameType
@@ -49,9 +49,6 @@ enum TF2GameType
 	TF2GameType_PL = 3,
 	TF2GameType_Arena = 4,
 }
-
-const REDScore = 0;
-const BLUScore = 1;
 
 // Valve CVars
 new Handle:g_Cvar_Queue;
@@ -79,10 +76,8 @@ public Plugin:myinfo = {
 	author			= "Powerlord",
 	description		= "Make tf_arena_use_queue scramble and score like normal arena",
 	version			= VERSION,
-	url				= ""
+	url				= "https://forums.alliedmods.net/showthread.php?t=251810"
 };
-
-new g_GameRulesProxy = -1;
 
 //swiped from tf2_morestocks.inc in my sourcemod-snippets repo
 /**
@@ -113,7 +108,7 @@ public OnPluginStart()
 	
 	HookConVarChange(g_Cvar_Queue, Cvar_QueueState);
 	
-	HookEvent("teamplay_round_start", Event_RoundStart);
+	HookEvent("teamplay_round_start", Event_RoundStart, EventHookMode_Pre);
 	//HookEvent("teamplay_round_win", Event_RoundEnd);
 	HookEvent("arena_win_panel", Event_WinPanel, EventHookMode_Pre);
 	HookEvent("arena_win_panel", Event_WinPanelPost, EventHookMode_PostNoCopy);
@@ -135,17 +130,11 @@ public OnPluginStart()
 }
 
 //void CTeamplayRules::SetScrambleTeams( bool bScramble )
-SetScrambleTeams(bool:bScramble, redScore, bluScore)
+SetScrambleTeams(bool:bScramble)
 {
 #if defined DEBUG
-    LogMessage("Scramble was activated. Resetting team scores.");
+    LogMessage("Telling game to scramble on round change.");
 #endif
-	
-	SetVariantInt(0 - redScore);
-	AcceptEntityInput(g_GameRulesProxy, "AddRedTeamScore");
-
-	SetVariantInt(0 - bluScore);
-	AcceptEntityInput(g_GameRulesProxy, "AddBlueTeamScore");
 	
 	SDKCall(g_Call_SetScramble, bScramble);
 	g_bScrambledThisRound = true;
@@ -155,7 +144,6 @@ public OnConfigsExecuted()
 {
 	PrecacheScriptSound("Announcer.AM_TeamScrambleRandom");
 	
-	g_GameRulesProxy = EntIndexToEntRef(FindEntityByClassname(-1, "tf_gamerules"));
 #if defined DEBUG
     LogMessage("g_GameRulesProxy is entref %d", g_GameRulesProxy);
 #endif
@@ -179,22 +167,33 @@ public OnConfigsExecuted()
 public OnMapEnd()
 {
 //	g_bMapActive = false;
-	g_GameRulesProxy = INVALID_ENT_REFERENCE;
-	
+
 	g_MapType = TF2GameType_Generic;
 }
 
 
-public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (g_bScrambledThisRound)
 	{
 		g_bScrambledThisRound = false;
+		
+#if defined DEBUG
+		LogMessage("Scramble was activated. Resetting team scores.");
+#endif
+		
+		SetTeamScore(_:TFTeam_Red, 0);
+		SetTeamScore(_:TFTeam_Blue, 0);
+		
+		// Arena scrambling using SetScrambleTeams has a few minor differences:
+		// 1. It doesn't play the scramble sound.
 		EmitGameSoundToAll("Announcer.AM_TeamScrambleRandom");
+		
+		// 2. It doesn't print the scramble in chat
 		new String:streakString[4];
 		GetConVarString(g_Cvar_Arena_Streak, streakString, sizeof(streakString));
 		
-		new String:teamName[4];
+		new String:teamName[18];
 		if (winningTeam == _:TFTeam_Red)
 		{
 			teamName = "#TF_RedTeam_Name";
@@ -204,8 +203,10 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 			teamName = "#TF_BlueTeam_Name";
 		}
 		
-		PrintValveTranslationToAll(HUD_PRINTTALK, "TF_Arena_MaxStreak", teamName, streakString);
+		PrintValveTranslationToAll(HUD_PRINTTALK, "#TF_Arena_MaxStreak", teamName, streakString);
 	}
+	
+	return Plugin_Continue;
 }
 
 
@@ -249,7 +250,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 			LogMessage("Red score (%d) exceeds win streak (%d)", score, streak);
 #endif
 			winningTeam = winner;
-			SetScrambleTeams(true, score, opponentScore);
+			SetScrambleTeams(true);
 			return Plugin_Continue;
 		}
 		
@@ -259,10 +260,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 #if defined DEBUG
 			LogMessage("Resetting Blue score by adding %d", 0 - opponentScore);
 #endif
-			
-			SetVariantInt(0 - opponentScore);
-			AcceptEntityInput(g_GameRulesProxy, "AddBlueTeamScore");
-			SetEventInt(event, "blue_score", 0);
+			SetTeamScore(_:TFTeam_Blue, 0);
 		}
 		
 	}
@@ -273,8 +271,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 
 #if defined DEBUG
 		LogMessage("Winner: BLU, BLU score: %d, RED score: %d", score, opponentScore);
-#endif
-		
+#endif	
 		
 		if (score >= streak)
 		{
@@ -282,7 +279,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 			LogMessage("Blue score (%d) exceeds win streak (%d)", score, streak);
 #endif
 			winningTeam = winner;
-			SetScrambleTeams(true, opponentScore, score);
+			SetScrambleTeams(true);
 			return Plugin_Continue;
 		}
 
@@ -292,8 +289,7 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 #if defined DEBUG
 			LogMessage("Resetting Red score by adding %d", 0 - opponentScore);
 #endif
-			SetVariantInt(0 - opponentScore);
-			AcceptEntityInput(g_GameRulesProxy, "AddRedTeamScore");
+			SetTeamScore(_:TFTeam_Red, 0);
 		}
 
 	}
