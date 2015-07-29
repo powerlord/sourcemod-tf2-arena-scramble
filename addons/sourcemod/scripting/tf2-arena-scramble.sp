@@ -204,7 +204,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 			teamName = "#TF_BlueTeam_Name";
 		}
 		
-		PrintValveTranslationToAll(HUD_PRINTTALK, "TF_Arena_MaxStreak", teamName, streakString);
+		PrintValveTranslationToAll(HUD_PRINTTALK, "#TF_Arena_MaxStreak", teamName, streakString);
 	}
 }
 
