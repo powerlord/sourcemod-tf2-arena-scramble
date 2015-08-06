@@ -68,5 +68,5 @@ public Action:Msg_TextMsg(UserMsg:msg_id, Handle:msg, const players[], playersNu
 	BfReadString(msg, param3, sizeof(param3));
 	BfReadString(msg, param4, sizeof(param4));
 	
-	LogToFile("textmsg.txt", "TextMsg sent to %d players at %d: \"%s\" (\"%s\", \"%s\", \"%s\", \"%s\")", msg_name, msg_dest, param1, param2, param3, param4);
+	LogToFile("textmsg.txt", "TextMsg sent to %d players at %d: \"%s\" (\"%s\", \"%s\", \"%s\", \"%s\")", playersNum, msg_dest, msg_name, param1, param2, param3, param4);
 }
