@@ -101,7 +101,7 @@ stock TF2GameType:TF2_GetGameType()
 
 public OnPluginStart()
 {
-	CreateConVar("tf2_arena_scramble_version", VERSION, "[TF2] Arena Scramble version", FCVAR_PLUGIN|FCVAR_NOTIFY|FCVAR_DONTRECORD|FCVAR_SPONLY);
+	CreateConVar("tf2_arena_scramble_version", VERSION, "[TF2] Arena Scramble version", FCVAR_NOTIFY|FCVAR_DONTRECORD|FCVAR_SPONLY);
 	
 	g_Cvar_Queue = FindConVar("tf_arena_use_queue");
 	g_Cvar_Arena_Streak = FindConVar("tf_arena_max_streak");
