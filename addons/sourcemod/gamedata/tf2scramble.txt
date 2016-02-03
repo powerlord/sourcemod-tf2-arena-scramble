@@ -8,26 +8,26 @@
 		{
 			"CBasePlayer::ChangeTeam"
 			{
-				"windows"	"419"
-				"linux"		"420"
+				"windows"	"420"
+				"linux"		"421"
 			}
 
 			"CTeamplayRules::SetScrambleTeams"
 			{
-				"windows"	"163"
-				"linux"		"164"
+				"windows"	"165"
+				"linux"		"166"
 			}
 
 			"CTeamplayRules::ShouldScrambleTeams"
 			{
-				"windows"	"164"
-				"linux"		"165"
+				"windows"	"166"
+				"linux"		"167"
 			}
 
 			"CTeamplayRules::HandleScrambleTeams"
 			{
-				"windows"	"165"
-				"linux"		"166"
+				"windows"	"167"
+				"linux"		"168"
 			}
 		}
 	}
